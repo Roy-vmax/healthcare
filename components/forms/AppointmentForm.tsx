@@ -252,7 +252,7 @@ export const AppointmentForm = ({
         </SubmitButton>
 
         {type === "create" && (
-          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-70 p-4">
             <div className="flex justify-between">
               <p className="text-sm text-dark-700">Estimated Cost:</p>
               <p className="font-medium">${calculateAppointmentCost().toFixed(2)}</p>

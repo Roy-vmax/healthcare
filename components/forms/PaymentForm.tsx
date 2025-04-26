@@ -130,7 +130,7 @@ export const PaymentForm = ({
           </p>
         </section>
 
-        <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <div className="mb-6 rounded-lg border border-gray-200 bg-gray-70 p-4">
           <div className="flex justify-between">
             <p className="text-sm text-dark-700">Appointment Fee:</p>
             <p className="font-medium">${appointmentCost.toFixed(2)}</p>

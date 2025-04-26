@@ -31,7 +31,7 @@ export default function RequestSuccess({
 
   // Payment details
   const paymentDetails = {
-    amount: "$15.00",
+    amount: "50.00",
     paymentId: "PAY-" + appointmentId.substring(0, 8),
     date: new Date().toLocaleDateString(),
     method: "Credit Card (••••1234)",
@@ -128,7 +128,7 @@ Status: ${paymentDetails.status}
           />
           <h2 className="text-3xl font-bold mb-6">
             Your <span className="text-green-400">appointment request</span> has
-            been successfully submitted!
+            been successfully submitted and paid!
           </h2>
           <p className="text-lg text-gray-300">
             We'll be in touch shortly to confirm.
