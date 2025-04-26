@@ -46,6 +46,18 @@ export default function RequestSuccess({
         const data = await getAppointment(appointmentId);
         setAppointmentData(data);
 
+        // Get appointment cost based on doctor
+        const doctorRates: Record<string, string> = {
+          "Dr. Sarah Johnson": "75.00",
+          "Dr. Michael Chen": "65.00",
+          "Dr. Emily Rodriguez": "60.00",
+        };
+        
+        // Update payment amount if doctor has a specific rate
+        if (doctorRates[data.primaryPhysician]) {
+          paymentDetails.amount = doctorRates[data.primaryPhysician];
+        }
+
         const doctorData = Doctors.find(
           (doc) => doc.name === data.primaryPhysician
         );
@@ -66,14 +78,18 @@ export default function RequestSuccess({
     setIsDownloading(true);
 
     try {
-      // Create a simple receipt text
+      // Create a more detailed receipt text that includes reason and notes
       const receiptContent = `
 CarePulse Receipt
 -----------------
 Appointment ID: ${appointmentId}
-Doctor: Dr. ${doctor?.name || "Unknown"}
+Doctor: ${appointmentData?.primaryPhysician || "Unknown"}
 Date: ${appointmentData ? formatDateTime(appointmentData.schedule).dateTime : ""}
-Amount: ${paymentDetails.amount}
+Reason: ${appointmentData?.reason || "Not specified"}
+Notes: ${appointmentData?.note || "None"}
+
+Payment Details:
+Amount: $${paymentDetails.amount}
 Payment ID: ${paymentDetails.paymentId}
 Payment Date: ${paymentDetails.date}
 Payment Method: ${paymentDetails.method}
@@ -150,9 +166,10 @@ Status: ${paymentDetails.status}
                   className="size-5"
                 />
               </div>
-              <p className="text-lg">Dr. {doctor?.name || "Unknown"}</p>
+              <p className="text-lg">{appointmentData?.primaryPhysician || "Unknown"}</p>
             </div>
-            <div className="flex gap-3 items-center">
+            
+            <div className="flex gap-3 items-center mb-4">
               <div className="bg-green-500 rounded-full p-2">
                 <Image
                   src="/assets/icons/calendar.svg"
@@ -168,6 +185,24 @@ Status: ${paymentDetails.status}
                   : "Loading..."}
               </p>
             </div>
+            
+            {/* New section for reason */}
+            <div className="mt-6">
+              <h4 className="text-md font-medium text-gray-300 mb-2">Reason for Appointment:</h4>
+              <div className="bg-gray-700 rounded-lg p-3 mb-4">
+                <p className="text-gray-200">{appointmentData?.reason || "Not specified"}</p>
+              </div>
+            </div>
+            
+            {/* New section for notes */}
+            {appointmentData?.note && (
+              <div>
+                <h4 className="text-md font-medium text-gray-300 mb-2">Additional Notes:</h4>
+                <div className="bg-gray-700 rounded-lg p-3">
+                  <p className="text-gray-200">{appointmentData.note}</p>
+                </div>
+              </div>
+            )}
           </section>
 
           <section className="bg-gray-800 rounded-xl p-6 flex-1">
@@ -176,7 +211,7 @@ Status: ${paymentDetails.status}
             </h3>
             <div className="grid grid-cols-2 gap-y-3 mb-6">
               <p className="text-gray-400">Amount:</p>
-              <p className="font-medium">{paymentDetails.amount}</p>
+              <p className="font-medium">${paymentDetails.amount}</p>
 
               <p className="text-gray-400">Payment ID:</p>
               <p className="font-medium">{paymentDetails.paymentId}</p>

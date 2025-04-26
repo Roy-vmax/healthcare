@@ -46,23 +46,19 @@ const createPaymentSchema = (paymentMethod: string) => {
       insurancePolicyNumber: z.string().min(1, "Policy number is required"),
     });
   } else {
-    // PayPal or other methods don't need additional validation
+    // Other methods don't need additional validation
     return z.object({
       ...baseSchema,
     });
   }
 };
 
+// Updated payment methods array without PayPal
 const paymentMethods = [
   {
     name: "Credit/Debit Card",
     value: "card",
     icon: "/assets/icons/credit-card.svg",
-  },
-  {
-    name: "PayPal",
-    value: "paypal",
-    icon: "/assets/icons/paypal.svg",
   },
   {
     name: "Insurance Copay",
@@ -209,23 +205,6 @@ export const PaymentForm = ({
               </Label>
             </div>
           </>
-        )}
-
-        {selectedPaymentMethod === "paypal" && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-8">
-            <div className="mb-4 w-32 h-8 relative">
-              <Image
-                src="/api/placeholder/120/40"
-                alt="PayPal"
-                layout="fill"
-                objectFit="contain"
-              />
-            </div>
-            <p className="text-sm text-dark-700 mb-4 text-center">
-              You will be redirected to PayPal to complete your payment after
-              submission.
-            </p>
-          </div>
         )}
 
         {selectedPaymentMethod === "insurance" && (
