@@ -79,3 +79,18 @@ export function encryptKey(passkey: string) {
 export function decryptKey(passkey: string) {
   return atob(passkey);
 }
+// Add this to your utils.ts file
+
+/**
+ * Formats a number as currency
+ * @param amount The amount to format
+ * @param currency The currency code (default: USD)
+ * @returns Formatted currency string
+ */
+export const formatCurrency = (amount: number, currency = 'USD'): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+  }).format(amount);
+};

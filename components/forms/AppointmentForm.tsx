@@ -21,6 +21,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import CustomFormField, { FormFieldType } from "../CustomFormField";
 import SubmitButton from "../SubmitButton";
 import { Form } from "../ui/form";
+import { PaymentForm } from "./PaymentForm";
 
 export const AppointmentForm = ({
   userId,
@@ -37,6 +38,8 @@ export const AppointmentForm = ({
 }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPaymentStep, setShowPaymentStep] = useState(false);
+  const [appointmentData, setAppointmentData] = useState<any>(null);
 
   const AppointmentFormValidation = getAppointmentSchema(type);
 
@@ -53,11 +56,9 @@ export const AppointmentForm = ({
     },
   });
 
-  const onSubmit = async (
+  const handleAppointmentSubmit = async (
     values: z.infer<typeof AppointmentFormValidation>
   ) => {
-    setIsLoading(true);
-
     let status;
     switch (type) {
       case "schedule":
@@ -70,50 +71,60 @@ export const AppointmentForm = ({
         status = "pending";
     }
 
-    try {
-      if (type === "create" && patientId) {
-        const appointment = {
-          userId,
-          patient: patientId,
+    if (type === "create" && patientId) {
+      const appointmentInfo = {
+        userId,
+        patient: patientId,
+        primaryPhysician: values.primaryPhysician,
+        schedule: new Date(values.schedule),
+        reason: values.reason!,
+        status: status as Status,
+        note: values.note,
+      };
+      
+      setAppointmentData(appointmentInfo);
+      setShowPaymentStep(true);
+    } else {
+      setIsLoading(true);
+      const appointmentToUpdate = {
+        userId,
+        appointmentId: appointment?.$id!,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        appointment: {
           primaryPhysician: values.primaryPhysician,
           schedule: new Date(values.schedule),
-          reason: values.reason!,
           status: status as Status,
-          note: values.note,
-        };
+          cancellationReason: values.cancellationReason,
+        },
+        type,
+      };
 
-        const newAppointment = await createAppointment(appointment);
+      const updatedAppointment = await updateAppointment(appointmentToUpdate);
 
-        if (newAppointment) {
-          form.reset();
-          router.push(
-            `/patients/${userId}/new-appointment/success?appointmentId=${newAppointment.$id}`
-          );
-        }
-      } else {
-        const appointmentToUpdate = {
-          userId,
-          appointmentId: appointment?.$id!,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Add timeZone
-          appointment: {
-            primaryPhysician: values.primaryPhysician,
-            schedule: new Date(values.schedule),
-            status: status as Status,
-            cancellationReason: values.cancellationReason,
-          },
-          type,
-        };
+      if (updatedAppointment) {
+        setOpen && setOpen(false);
+        form.reset();
+      }
+      setIsLoading(false);
+    }
+  };
 
-        const updatedAppointment = await updateAppointment(appointmentToUpdate);
+  const handlePaymentComplete = async () => {
+    setIsLoading(true);
+    
+    try {
+      const newAppointment = await createAppointment(appointmentData);
 
-        if (updatedAppointment) {
-          setOpen && setOpen(false);
-          form.reset();
-        }
+      if (newAppointment) {
+        form.reset();
+        router.push(
+          `/patients/${userId}/new-appointment/success?appointmentId=${newAppointment.$id}`
+        );
       }
     } catch (error) {
       console.log(error);
     }
+    
     setIsLoading(false);
   };
 
@@ -126,12 +137,36 @@ export const AppointmentForm = ({
       buttonLabel = "Schedule Appointment";
       break;
     default:
-      buttonLabel = "Submit Apppointment";
+      buttonLabel = "Continue to Payment";
+  }
+
+  // Calculate appointment cost based on appointment type or doctor
+  const calculateAppointmentCost = () => {
+    const selectedDoctor = form.watch("primaryPhysician");
+    const baseRate = 50; // Base appointment rate
+    
+    // Different doctors could have different rates
+    const doctorRates: Record<string, number> = {
+      "Dr. Sarah Johnson": 75,
+      "Dr. Michael Chen": 65,
+      "Dr. Emily Rodriguez": 60,
+    };
+    
+    return doctorRates[selectedDoctor] || baseRate;
+  };
+
+  if (showPaymentStep) {
+    return (
+      <PaymentForm 
+        onPaymentComplete={handlePaymentComplete} 
+        appointmentCost={calculateAppointmentCost()}
+      />
+    );
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6">
+      <form onSubmit={form.handleSubmit(handleAppointmentSubmit)} className="flex-1 space-y-6">
         {type === "create" && (
           <section className="mb-12 space-y-4">
             <h1 className="header">New Appointment</h1>
@@ -215,6 +250,18 @@ export const AppointmentForm = ({
         >
           {buttonLabel}
         </SubmitButton>
+
+        {type === "create" && (
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex justify-between">
+              <p className="text-sm text-dark-700">Estimated Cost:</p>
+              <p className="font-medium">${calculateAppointmentCost().toFixed(2)}</p>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              *Final cost may vary based on insurance coverage and appointment duration
+            </p>
+          </div>
+        )}
       </form>
     </Form>
   );
