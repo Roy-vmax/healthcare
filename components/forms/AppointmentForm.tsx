@@ -3,16 +3,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { SelectItem } from "@/components/ui/select";
-import { Doctors } from "@/constants";
 import {
   createAppointment,
   updateAppointment,
 } from "@/lib/actions/appointment.actions";
+import { getAllDoctors } from "@/lib/actions/doctor.actions";
 import { getAppointmentSchema } from "@/lib/validation";
 import { Appointment } from "@/types/appwrite.types";
 
@@ -28,45 +28,15 @@ type Status = "pending" | "scheduled" | "cancelled";
 
 // Define Doctor interface
 interface Doctor {
+  $id: string;
   name: string;
   image: string;
   experience?: string;
-  availability?: string[];
   specialization?: string;
   rate?: number;
+  availability?: string;
+  availabilityEndTime?: string;
 }
-
-// Doctor experience data (this would normally come from your database)
-const doctorExperience: Record<string, string> = {
-  "Dr. Sarah Johnson": "15 years",
-  "Dr. Michael Chen": "10 years", 
-  "Dr. Emily Rodriguez": "8 years",
-  "Dr. David Livingston": "12 years"
-};
-
-// Doctor availability times (this would normally come from your database)
-const doctorAvailability: Record<string, string[]> = {
-  "Dr. Sarah Johnson": ["9:00 AM - 11:00 AM", "2:00 PM - 4:00 PM"],
-  "Dr. Michael Chen": ["10:00 AM - 1:00 PM", "3:00 PM - 5:00 PM"],
-  "Dr. Emily Rodriguez": ["8:00 AM - 12:00 PM", "1:00 PM - 3:00 PM"],
-  "Dr. David Livingston": ["11:00 AM - 2:00 PM", "4:00 PM - 6:00 PM"]
-};
-
-// Doctor specializations
-const doctorSpecializations: Record<string, string> = {
-  "Dr. Sarah Johnson": "Cardiology",
-  "Dr. Michael Chen": "Neurology",
-  "Dr. Emily Rodriguez": "Pediatrics",
-  "Dr. David Livingston": "Family Medicine"
-};
-
-// Doctor rates
-const doctorRates: Record<string, number> = {
-  "Dr. Sarah Johnson": 75,
-  "Dr. Michael Chen": 65,
-  "Dr. Emily Rodriguez": 60,
-  "Dr. David Livingston": 70
-};
 
 export const AppointmentForm = ({
   userId,
@@ -88,8 +58,10 @@ export const AppointmentForm = ({
   const [selectedDoctor, setSelectedDoctor] = useState<string>(
     appointment ? appointment?.primaryPhysician : ""
   );
-  const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>(Doctors);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
 
   const AppointmentFormValidation = getAppointmentSchema(type);
 
@@ -106,6 +78,26 @@ export const AppointmentForm = ({
     },
   });
 
+  // Fetch doctors from the database
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      setIsLoadingDoctors(true);
+      try {
+        const doctorsList = await getAllDoctors();
+        setDoctors(doctorsList || []);
+        setFilteredDoctors(doctorsList || []);
+      } catch (error) {
+        console.error("Error fetching doctors:", error);
+        setDoctors([]);
+        setFilteredDoctors([]);
+      } finally {
+        setIsLoadingDoctors(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
+
   // Update the form value when a doctor is selected
   const handleDoctorSelect = (doctorName: string) => {
     setSelectedDoctor(doctorName);
@@ -118,11 +110,11 @@ export const AppointmentForm = ({
     setSearchQuery(query);
     
     if (query.trim() === "") {
-      setFilteredDoctors(Doctors);
+      setFilteredDoctors(doctors);
     } else {
-      const filtered = Doctors.filter(doctor => 
+      const filtered = doctors.filter(doctor => 
         doctor.name.toLowerCase().includes(query) || 
-        (doctorSpecializations[doctor.name] || "").toLowerCase().includes(query)
+        (doctor.specialization || "").toLowerCase().includes(query)
       );
       setFilteredDoctors(filtered);
     }
@@ -200,11 +192,17 @@ export const AppointmentForm = ({
     setIsLoading(false);
   };
 
-  // Calculate appointment cost based on doctor
+  // Calculate appointment cost based on doctor - FIXED FUNCTION
   const calculateAppointmentCost = () => {
     const selectedDoctorName = form.watch("primaryPhysician");
+    if (!selectedDoctorName) return 50; // Return default rate if no doctor selected
+    
+    const selectedDoc = doctors.find(doc => doc.name === selectedDoctorName);
     const baseRate = 50; // Base appointment rate
-    return doctorRates[selectedDoctorName] || baseRate;
+    
+    // Ensure we're returning a number
+    const rate = selectedDoc?.rate;
+    return typeof rate === 'number' ? rate : baseRate;
   };
 
   let buttonLabel;
@@ -223,6 +221,25 @@ export const AppointmentForm = ({
   const handleManualDoctorEntry = () => {
     if (searchQuery && !filteredDoctors.some(d => d.name === searchQuery)) {
       handleDoctorSelect(searchQuery);
+    }
+  };
+
+  // Format doctor availability for display
+  const formatAvailability = (doctor: Doctor) => {
+    if (!doctor.availability || !doctor.availabilityEndTime) {
+      return ["Contact for availability"];
+    }
+    
+    try {
+      const startDate = new Date(doctor.availability);
+      const startTime = startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      const endDate = new Date(doctor.availabilityEndTime);
+      const endTime = endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      return [`${startTime} - ${endTime}`];
+    } catch (error) {
+      return ["Available by appointment"];
     }
   };
 
@@ -275,89 +292,98 @@ export const AppointmentForm = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {filteredDoctors.length > 0 ? (
-                  filteredDoctors.map((doctor, i) => (
-                    <div 
-                      key={doctor.name + i} 
-                      className={`rounded-lg border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-800 dark:border-gray-700 ${
-                        selectedDoctor === doctor.name 
-                          ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900" 
-                          : "border-gray-200 hover:border-blue-300"
-                      }`}
-                      onClick={() => handleDoctorSelect(doctor.name)}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="relative">
-                          <Image
-                            src={doctor.image}
-                            width={60}
-                            height={60}
-                            alt={doctor.name}
-                            className="rounded-full border border-gray-200 object-cover"
-                          />
-                          {selectedDoctor === doctor.name && (
-                            <div className="absolute -right-1 -top-1 rounded-full bg-green-500 p-1">
-                              <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
+              {isLoadingDoctors ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {filteredDoctors && filteredDoctors.length > 0 ? (
+                    filteredDoctors.map((doctor) => (
+                      <div 
+                        key={doctor.$id} 
+                        className={`rounded-lg border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-800 dark:border-gray-700 ${
+                          selectedDoctor === doctor.name 
+                            ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900" 
+                            : "border-gray-200 hover:border-blue-300"
+                        }`}
+                        onClick={() => handleDoctorSelect(doctor.name)}
+                      >
+                        <div className="flex items-start gap-4">
+                          {doctor.image && (
+                            <div className="relative">
+                              <div className="rounded-full border border-gray-200 overflow-hidden" style={{width: 60, height: 60}}>
+                                <Image
+                                  src={doctor.image}
+                                  width={60}
+                                  height={60}
+                                  alt={doctor.name}
+                                  className="object-cover"
+                                />
+                              </div>
+                              {selectedDoctor === doctor.name && (
+                                <div className="absolute -right-1 -top-1 rounded-full bg-green-500 p-1">
+                                  <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              )}
                             </div>
                           )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between">
-                            <h3 className="font-medium">{doctor.name}</h3>
-                            <span className="text-sm font-medium text-green-200">
-                              ${doctorRates[doctor.name] || 50}
-                            </span>
-                          </div>
-                          
-                          <div className="mt-1 flex items-center">
-                            <span className="text-sm text-gray-500">
-                              {doctorSpecializations[doctor.name] || "General Practice"}
-                            </span>
-                            {doctorExperience[doctor.name] && (
-                              <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-green-800 dark:bg-blue-900 dark:text-blue-200">
-                                {doctorExperience[doctor.name]}
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <h3 className="font-medium">{doctor.name}</h3>
+                              <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                                ${doctor.rate || 50}
                               </span>
-                            )}
-                          </div>
-                          
-                          <div className="mt-3">
-                            <p className="text-xs font-medium text-green-600 dark:text-green-300">Available:</p>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {doctorAvailability[doctor.name]?.map((time, index) => (
-                                <span 
-                                  key={index} 
-                                  className="rounded bg-gray-100 px-2 py-1 text-xs font-medium dark:bg-gray-700"
-                                >
-                                  {time}
+                            </div>
+                            
+                            <div className="mt-1 flex items-center">
+                              <span className="text-sm text-gray-500">
+                                {doctor.specialization || "General Practice"}
+                              </span>
+                              {doctor.experience && (
+                                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-green-800 dark:bg-blue-900 dark:text-blue-200">
+                                  {doctor.experience}
                                 </span>
-                              ))}
-                              {!doctorAvailability[doctor.name] && (
-                                <span className="text-xs text-gray-500">Contact for availability</span>
                               )}
+                            </div>
+                            
+                            <div className="mt-3">
+                              <p className="text-xs font-medium text-green-600 dark:text-green-300">Available:</p>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {formatAvailability(doctor).map((time, index) => (
+                                  <span 
+                                    key={index} 
+                                    className="rounded bg-gray-100 px-2 py-1 text-xs font-medium dark:bg-gray-700"
+                                  >
+                                    {time}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-center dark:bg-gray-800 dark:border-gray-700">
+                      <p className="text-gray-500 dark:text-gray-400">No doctors found matching "{searchQuery}"</p>
+                      {searchQuery && (
+                        <button 
+                          type="button"
+                          onClick={() => handleDoctorSelect(searchQuery)}
+                          className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          Add "{searchQuery}" as doctor
+                        </button>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-center dark:bg-gray-800 dark:border-gray-700">
-                    <p className="text-gray-500 dark:text-gray-400">No doctors found matching "{searchQuery}"</p>
-                    <button 
-                      type="button"
-                      onClick={() => handleDoctorSelect(searchQuery)}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      Add "{searchQuery}" as doctor
-                    </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
               
-              {selectedDoctor && !Doctors.some(d => d.name === selectedDoctor) && (
+              {selectedDoctor && !doctors.some(d => d.name === selectedDoctor) && (
                 <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/30">
                   <p className="text-sm text-blue-800 dark:text-blue-200">
                     Using custom doctor: <strong>{selectedDoctor}</strong>
@@ -382,7 +408,6 @@ export const AppointmentForm = ({
                 label="Appointment date and time"
                 showTimeSelect
                 dateFormat="MM/dd/yyyy  -  h:mm aa"
-                // Removed className as it is not supported by CustomFormField
               />
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -439,7 +464,7 @@ export const AppointmentForm = ({
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
                     ${calculateAppointmentCost().toFixed(2)}
                   </p>
-                  {selectedDoctor && doctorRates[selectedDoctor] && (
+                  {selectedDoctor && doctors.find(d => d.name === selectedDoctor)?.rate && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Standard rate for {selectedDoctor}
                     </p>

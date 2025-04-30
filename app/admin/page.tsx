@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { StatCard } from "@/components/StatCard";
 import { columns } from "@/components/table/columns";
 import { DataTable } from "@/components/table/DataTable";
 import { getRecentAppointmentList } from "@/lib/actions/appointment.actions";
+import { DoctorsList } from "@/components/forms/DoctorsList";
 
 const AdminPage = async () => {
   const appointments = await getRecentAppointmentList();
@@ -29,7 +31,7 @@ const AdminPage = async () => {
         <section className="w-full space-y-4">
           <h1 className="header">Welcome 👋</h1>
           <p className="text-dark-700">
-            Start the day with managing new appointments
+            Start the day with managing appointments and doctors
           </p>
         </section>
 
@@ -54,7 +56,20 @@ const AdminPage = async () => {
           />
         </section>
 
-        <DataTable columns={columns} data={appointments.documents} />
+        <Tabs defaultValue="appointments" className="w-full mt-8">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
+            <TabsTrigger value="doctors">Doctors</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="appointments">
+            <DataTable columns={columns} data={appointments.documents} />
+          </TabsContent>
+          
+          <TabsContent value="doctors">
+            <DoctorsList />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

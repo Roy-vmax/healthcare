@@ -70,12 +70,21 @@ const paymentMethods = [
 interface PaymentFormProps {
   onPaymentComplete: () => void;
   appointmentCost: number;
+  doctorName?: string;
 }
 
 export const PaymentForm = ({
   onPaymentComplete,
-  appointmentCost = 50,
+  appointmentCost,
+  doctorName = "your doctor"
 }: PaymentFormProps) => {
+  // Make sure appointmentCost is treated as a number
+  const cost = typeof appointmentCost === 'string' 
+    ? parseFloat(appointmentCost) 
+    : (appointmentCost || 50);
+  
+  // Debug log to verify the cost being used
+  console.log(`Payment form initialized with cost: ${cost} for ${doctorName}`);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("card");
 
@@ -122,14 +131,22 @@ export const PaymentForm = ({
           <h1 className="header">Payment Details</h1>
           <p className="text-dark-700">
             Please provide your payment information to complete your appointment
-            request.
+            request with {doctorName}.
           </p>
         </section>
 
+        {/* Doctor Fee Summary */}
         <div className="mb-6 rounded-lg border border-gray-200 bg-gray-70 p-4">
+          <div className="mb-2">
+            <p className="text-md font-semibold">Appointment Summary</p>
+          </div>
           <div className="flex justify-between">
-            <p className="text-sm text-dark-700">Appointment Fee:</p>
-            <p className="font-medium">${appointmentCost.toFixed(2)}</p>
+            <p className="text-sm text-dark-700">Doctor's Consultation Fee:</p>
+            <p className="font-medium">${cost.toFixed(2)}</p>
+          </div>
+          <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between font-semibold">
+            <p>Total Due:</p>
+            <p>${cost.toFixed(2)}</p>
           </div>
         </div>
 
@@ -227,7 +244,7 @@ export const PaymentForm = ({
         )}
 
         <SubmitButton isLoading={isLoading} className="shad-primary-btn w-full">
-          Pay ${appointmentCost.toFixed(2)} & Submit Appointment
+          Pay ${cost.toFixed(2)} & Submit Appointment
         </SubmitButton>
       </form>
     </Form>

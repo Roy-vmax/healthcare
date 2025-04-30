@@ -7,6 +7,17 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  images: {
+    domains: ['cloud.appwrite.io'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cloud.appwrite.io',
+        port: '',
+        pathname: '/v1/storage/buckets/**',
+      },
+    ],
+  },
   // Other Next.js configuration options can go here
 }
 export default withSentryConfig(withSentryConfig(nextConfig, {
