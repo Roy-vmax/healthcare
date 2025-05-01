@@ -1,32 +1,30 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Dispatch, SetStateAction, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-
-import { SelectItem } from "@/components/ui/select";
-import {
-  createAppointment,
-  updateAppointment,
-} from "@/lib/actions/appointment.actions";
-import { getAllDoctors } from "@/lib/actions/doctor.actions";
-import { getAppointmentSchema } from "@/lib/validation";
-import { Appointment } from "@/types/appwrite.types";
-
+import { zodResolver } from "@hookform/resolvers/zod";
 import "react-datepicker/dist/react-datepicker.css";
 
+import { getAppointmentSchema } from "@/lib/validation";
+import { 
+  createAppointment, 
+  updateAppointment 
+} from "@/lib/actions/appointment.actions";
+import { getAllDoctors } from "@/lib/actions/doctor.actions";
+import { Appointment } from "@/types/appwrite.types";
+
+import { Form } from "../ui/form";
 import CustomFormField, { FormFieldType } from "../CustomFormField";
 import SubmitButton from "../SubmitButton";
-import { Form } from "../ui/form";
 import { PaymentForm } from "./PaymentForm";
+import { Search, Calendar, FileText, Clock, X } from "lucide-react";
 
-// Define the Status type that was missing
+// Type definitions
 type Status = "pending" | "scheduled" | "cancelled";
 
-// Define Doctor interface
 interface Doctor {
   $id: string;
   name: string;
@@ -52,6 +50,8 @@ export const AppointmentForm = ({
   setOpen?: Dispatch<SetStateAction<boolean>>;
 }) => {
   const router = useRouter();
+  
+  // State management
   const [isLoading, setIsLoading] = useState(false);
   const [showPaymentStep, setShowPaymentStep] = useState(false);
   const [appointmentData, setAppointmentData] = useState<any>(null);
@@ -63,8 +63,8 @@ export const AppointmentForm = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
 
+  // Form setup
   const AppointmentFormValidation = getAppointmentSchema(type);
-
   const form = useForm<z.infer<typeof AppointmentFormValidation>>({
     resolver: zodResolver(AppointmentFormValidation),
     defaultValues: {
@@ -78,7 +78,7 @@ export const AppointmentForm = ({
     },
   });
 
-  // Fetch doctors from the database
+  // Fetch doctors
   useEffect(() => {
     const fetchDoctors = async () => {
       setIsLoadingDoctors(true);
@@ -98,13 +98,12 @@ export const AppointmentForm = ({
     fetchDoctors();
   }, []);
 
-  // Update the form value when a doctor is selected
+  // Handler functions
   const handleDoctorSelect = (doctorName: string) => {
     setSelectedDoctor(doctorName);
     form.setValue("primaryPhysician", doctorName);
   };
 
-  // Filter doctors based on search query
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value.toLowerCase();
     setSearchQuery(query);
@@ -117,6 +116,17 @@ export const AppointmentForm = ({
         (doctor.specialization || "").toLowerCase().includes(query)
       );
       setFilteredDoctors(filtered);
+    }
+  };
+
+  const handleSearchClear = () => {
+    setSearchQuery("");
+    setFilteredDoctors(doctors);
+  };
+
+  const handleManualDoctorEntry = () => {
+    if (searchQuery && !filteredDoctors.some(d => d.name === searchQuery)) {
+      handleDoctorSelect(searchQuery);
     }
   };
 
@@ -192,39 +202,18 @@ export const AppointmentForm = ({
     setIsLoading(false);
   };
 
-  // Calculate appointment cost based on doctor - FIXED FUNCTION
+  // Helper functions
   const calculateAppointmentCost = () => {
     const selectedDoctorName = form.watch("primaryPhysician");
-    if (!selectedDoctorName) return 50; // Return default rate if no doctor selected
+    if (!selectedDoctorName) return 50; // Default rate
     
     const selectedDoc = doctors.find(doc => doc.name === selectedDoctorName);
-    const baseRate = 50; // Base appointment rate
+    const baseRate = 50;
     
-    // Ensure we're returning a number
     const rate = selectedDoc?.rate;
     return typeof rate === 'number' ? rate : baseRate;
   };
 
-  let buttonLabel;
-  switch (type) {
-    case "cancel":
-      buttonLabel = "Cancel Appointment";
-      break;
-    case "schedule":
-      buttonLabel = "Schedule Appointment";
-      break;
-    default:
-      buttonLabel = "Continue to Payment";
-  }
-
-  // Allow manual entry of doctor if not found
-  const handleManualDoctorEntry = () => {
-    if (searchQuery && !filteredDoctors.some(d => d.name === searchQuery)) {
-      handleDoctorSelect(searchQuery);
-    }
-  };
-
-  // Format doctor availability for display
   const formatAvailability = (doctor: Doctor) => {
     if (!doctor.availability || !doctor.availabilityEndTime) {
       return ["Contact for availability"];
@@ -243,6 +232,16 @@ export const AppointmentForm = ({
     }
   };
 
+  // UI text
+  const buttonLabel = (() => {
+    switch (type) {
+      case "cancel": return "Cancel Appointment";
+      case "schedule": return "Schedule Appointment";
+      default: return "Continue to Payment";
+    }
+  })();
+
+  // Payment step
   if (showPaymentStep) {
     return (
       <PaymentForm 
@@ -256,8 +255,8 @@ export const AppointmentForm = ({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleAppointmentSubmit)} className="flex-1 space-y-6">
         {type === "create" && (
-          <section className="mb-8 space-y-4">
-            <h1 className="text-2xl font-bold">New Appointment</h1>
+          <section className="mb-8 space-y-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">New Appointment</h1>
             <p className="text-gray-600 dark:text-gray-300">
               Request a new appointment in 10 seconds.
             </p>
@@ -269,27 +268,41 @@ export const AppointmentForm = ({
             {/* Doctor search and selection */}
             <div className="space-y-4">
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Find a Doctor
                 </label>
                 <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                  </div>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={handleSearchChange}
                     placeholder="Search by name or specialization"
-                    className="w-full rounded-lg border border-gray-300 p-3 pr-10 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg border border-gray-300 p-3 pl-10 pr-10 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                   />
                   {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={handleManualDoctorEntry}
-                      className="absolute right-3 top-3 text-xs text-blue-600 hover:text-blue-800"
-                    >
-                      Use "{searchQuery}"
-                    </button>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                      <button
+                        type="button"
+                        onClick={handleSearchClear}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
+                {searchQuery && !filteredDoctors.some(d => d.name === searchQuery) && (
+                  <button
+                    type="button"
+                    onClick={handleManualDoctorEntry}
+                    className="self-end text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    Use "{searchQuery}" as doctor name
+                  </button>
+                )}
               </div>
 
               {isLoadingDoctors ? (
@@ -302,17 +315,17 @@ export const AppointmentForm = ({
                     filteredDoctors.map((doctor) => (
                       <div 
                         key={doctor.$id} 
-                        className={`rounded-lg border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-800 dark:border-gray-700 ${
-                          selectedDoctor === doctor.name 
-                            ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900" 
-                            : "border-gray-200 hover:border-blue-300"
-                        }`}
+                        className={`rounded-lg border p-4 shadow-sm transition-all hover:shadow-md cursor-pointer
+                          ${selectedDoctor === doctor.name 
+                            ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 dark:bg-blue-900/20 dark:ring-blue-900" 
+                            : "border-gray-200 bg-white hover:border-blue-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-blue-700"}
+                        `}
                         onClick={() => handleDoctorSelect(doctor.name)}
                       >
                         <div className="flex items-start gap-4">
                           {doctor.image && (
-                            <div className="relative">
-                              <div className="rounded-full border border-gray-200 overflow-hidden" style={{width: 60, height: 60}}>
+                            <div className="relative flex-shrink-0">
+                              <div className="rounded-full border border-gray-200 overflow-hidden dark:border-gray-700" style={{width: 60, height: 60}}>
                                 <Image
                                   src={doctor.image}
                                   width={60}
@@ -322,8 +335,8 @@ export const AppointmentForm = ({
                                 />
                               </div>
                               {selectedDoctor === doctor.name && (
-                                <div className="absolute -right-1 -top-1 rounded-full bg-green-500 p-1">
-                                  <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <div className="absolute -right-1 -top-1 rounded-full bg-green-500 p-1 border-2 border-white dark:border-gray-800">
+                                  <svg className="h-2 w-2 text-white" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                   </svg>
                                 </div>
@@ -332,30 +345,33 @@ export const AppointmentForm = ({
                           )}
                           <div className="flex-1">
                             <div className="flex justify-between">
-                              <h3 className="font-medium">{doctor.name}</h3>
+                              <h3 className="font-medium text-gray-900 dark:text-white">{doctor.name}</h3>
                               <span className="text-sm font-medium text-green-600 dark:text-green-400">
                                 ${doctor.rate || 50}
                               </span>
                             </div>
                             
                             <div className="mt-1 flex items-center">
-                              <span className="text-sm text-gray-500">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
                                 {doctor.specialization || "General Practice"}
                               </span>
                               {doctor.experience && (
-                                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-green-800 dark:bg-blue-900 dark:text-blue-200">
+                                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                                   {doctor.experience}
                                 </span>
                               )}
                             </div>
                             
                             <div className="mt-3">
-                              <p className="text-xs font-medium text-green-600 dark:text-green-300">Available:</p>
+                              <div className="flex items-center text-xs font-medium text-green-600 dark:text-green-300">
+                                <Clock className="mr-1 h-3 w-3" />
+                                Available:
+                              </div>
                               <div className="mt-1 flex flex-wrap gap-1">
                                 {formatAvailability(doctor).map((time, index) => (
                                   <span 
                                     key={index} 
-                                    className="rounded bg-gray-100 px-2 py-1 text-xs font-medium dark:bg-gray-700"
+                                    className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
                                   >
                                     {time}
                                   </span>
@@ -367,13 +383,13 @@ export const AppointmentForm = ({
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-center dark:bg-gray-800 dark:border-gray-700">
+                    <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-6 text-center dark:bg-gray-800 dark:border-gray-700">
                       <p className="text-gray-500 dark:text-gray-400">No doctors found matching "{searchQuery}"</p>
                       {searchQuery && (
                         <button 
                           type="button"
                           onClick={() => handleDoctorSelect(searchQuery)}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                          className="mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                         >
                           Add "{searchQuery}" as doctor
                         </button>
@@ -398,8 +414,11 @@ export const AppointmentForm = ({
               )}
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:bg-gray-800 dark:border-gray-700">
-              <h3 className="mb-3 font-medium">Appointment Details</h3>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+              <h3 className="mb-3 font-medium flex items-center text-gray-900 dark:text-white">
+                <Calendar className="mr-2 h-4 w-4 text-blue-500" />
+                Appointment Details
+              </h3>
               
               <CustomFormField
                 fieldType={FormFieldType.DATE_PICKER}
@@ -410,32 +429,45 @@ export const AppointmentForm = ({
                 dateFormat="MM/dd/yyyy  -  h:mm aa"
               />
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <CustomFormField
-                  fieldType={FormFieldType.TEXTAREA}
-                  control={form.control}
-                  name="reason"
-                  label="Appointment reason"
-                  placeholder="Annual checkup, follow-up visit, etc."
-                  disabled={type === "schedule"}
-                />
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <FileText className="mr-2 h-4 w-4 text-blue-500" />
+                    <CustomFormField
+                      fieldType={FormFieldType.TEXTAREA}
+                      control={form.control}
+                      name="reason"
+                      label="Appointment reason"
+                      placeholder="Annual checkup, follow-up visit, etc."
+                      disabled={type === "schedule"}
+                    />
+                  </div>
+                </div>
 
-                <CustomFormField
-                  fieldType={FormFieldType.TEXTAREA}
-                  control={form.control}
-                  name="note"
-                  label="Additional notes"
-                  placeholder="Any special requirements or information"
-                  disabled={type === "schedule"}
-                />
+                <div className="space-y-1">
+                  <div className="flex items-center">
+                    <FileText className="mr-2 h-4 w-4 text-blue-500" />
+                    <CustomFormField
+                      fieldType={FormFieldType.TEXTAREA}
+                      control={form.control}
+                      name="note"
+                      label="Additional notes"
+                      placeholder="Any special requirements or information"
+                      disabled={type === "schedule"}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </>
         )}
 
         {type === "cancel" && (
-          <div className="rounded-lg border border-red-100 bg-red-50 p-4 dark:bg-red-900/20 dark:border-red-900/30">
-            <h3 className="mb-3 font-medium text-red-800 dark:text-red-200">Cancel Appointment</h3>
+          <div className="rounded-lg border border-red-100 bg-red-50 p-4 shadow-sm dark:bg-red-900/20 dark:border-red-900/30">
+            <h3 className="mb-3 font-medium text-red-800 dark:text-red-200 flex items-center">
+              <X className="mr-2 h-4 w-4" />
+              Cancel Appointment
+            </h3>
             <p className="mb-4 text-sm text-red-700 dark:text-red-300">
               Please provide a reason for cancelling this appointment.
             </p>
@@ -452,8 +484,8 @@ export const AppointmentForm = ({
 
         <div className="mt-6 space-y-4">
           {type === "create" && (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:bg-gray-800 dark:border-gray-700">
-              <div className="flex justify-between">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+              <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Estimated Cost</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -476,7 +508,7 @@ export const AppointmentForm = ({
 
           <SubmitButton
             isLoading={isLoading}
-            className={`w-full py-3 ${
+            className={`w-full py-3 shadow-sm hover:shadow-md transition-all ${
               type === "cancel" 
                 ? "bg-red-600 hover:bg-red-700 text-white" 
                 : "bg-blue-600 hover:bg-blue-700 text-white"
