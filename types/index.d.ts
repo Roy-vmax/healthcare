@@ -55,3 +55,54 @@ declare type UpdateAppointmentParams = {
   appointment: Appointment;
   type: string;
 };
+// Add these types to your existing types/index.d.ts file
+
+// Verification types
+type VerificationRecord = {
+  $id: string;
+  $createdAt: string;
+  $updatedAt: string;
+  phone: string;
+  code: string;
+  expiresAt: string;
+  attempts: number;
+  verified: boolean;
+};
+
+type VerificationResult = {
+  success: boolean;
+  message: string;
+};
+
+// Update existing types if needed
+type CreateUserParams = {
+  name: string;
+  email: string;
+  phone: string;
+};
+
+type RegisterUserParams = {
+  userId: string;
+  name: string;
+  email: string;
+  phone: string;
+  birthDate: Date;
+  gender: string;
+  address: string;
+  occupation: string;
+  emergencyContactName: string;
+  emergencyContactNumber: string;
+  primaryPhysician: string;
+  insuranceProvider: string;
+  insurancePolicyNumber: string;
+  allergies?: string;
+  currentMedication?: string;
+  familyMedicalHistory?: string;
+  pastMedicalHistory?: string;
+  identificationType?: string;
+  identificationNumber?: string;
+  identificationDocument?: FormData;
+  treatmentConsent?: boolean;
+  disclosureConsent?: boolean;
+  privacyConsent: boolean;
+};

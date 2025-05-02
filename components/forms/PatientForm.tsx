@@ -8,15 +8,19 @@ import { z } from "zod";
 
 import { Form } from "@/components/ui/form";
 import { createUser } from "@/lib/actions/patient.actions";
+import { isPhoneVerified } from "@/lib/actions/verification.actions";
 import { UserFormValidation } from "@/lib/validation";
 
 import "react-phone-number-input/style.css";
 import CustomFormField, { FormFieldType } from "../CustomFormField";
+import PhoneVerification from "./PhoneVerification";
 import SubmitButton from "../SubmitButton";
 
 export const PatientForm = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
+  const [formValues, setFormValues] = useState<z.infer<typeof UserFormValidation> | null>(null);
 
   const form = useForm<z.infer<typeof UserFormValidation>>({
     resolver: zodResolver(UserFormValidation),
@@ -30,6 +34,36 @@ export const PatientForm = () => {
   const onSubmit = async (values: z.infer<typeof UserFormValidation>) => {
     setIsLoading(true);
 
+    try {
+      // Check if phone is already verified
+      const isVerified = await isPhoneVerified(values.phone);
+      
+      if (isVerified) {
+        // Phone is already verified, proceed with user creation
+        await createAndRedirectUser(values);
+      } else {
+        // Store form values and show verification UI
+        setFormValues(values);
+        setShowVerification(true);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+
+    setIsLoading(false);
+  };
+
+  // Handle completion of verification
+  const handleVerified = async () => {
+    if (formValues) {
+      setIsLoading(true);
+      await createAndRedirectUser(formValues);
+      setIsLoading(false);
+    }
+  };
+
+  // Create user and redirect
+  const createAndRedirectUser = async (values: z.infer<typeof UserFormValidation>) => {
     try {
       const user = {
         name: values.name,
@@ -45,9 +79,15 @@ export const PatientForm = () => {
     } catch (error) {
       console.log(error);
     }
-
-    setIsLoading(false);
   };
+
+  if (showVerification && formValues) {
+    return (
+      <div className="flex-1">
+        <PhoneVerification phone={formValues.phone} onVerified={handleVerified} />
+      </div>
+    );
+  }
 
   return (
     <Form {...form}>
