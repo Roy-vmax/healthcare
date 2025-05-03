@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Dispatch, SetStateAction, useState, useEffect } from "react";
+import { Dispatch, SetStateAction, useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,7 @@ import { Form } from "../ui/form";
 import CustomFormField, { FormFieldType } from "../CustomFormField";
 import SubmitButton from "../SubmitButton";
 import { PaymentForm } from "./PaymentForm";
-import { Search, Calendar, FileText, Clock, X } from "lucide-react";
+import { Search, Calendar, FileText, Clock, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 // Type definitions
 type Status = "pending" | "scheduled" | "cancelled";
@@ -50,6 +50,7 @@ export const AppointmentForm = ({
   setOpen?: Dispatch<SetStateAction<boolean>>;
 }) => {
   const router = useRouter();
+  const doctorsContainerRef = useRef<HTMLDivElement>(null);
   
   // State management
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +63,8 @@ export const AppointmentForm = ({
   const [filteredDoctors, setFilteredDoctors] = useState<Doctor[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   // Form setup
   const AppointmentFormValidation = getAppointmentSchema(type);
@@ -98,7 +101,46 @@ export const AppointmentForm = ({
     fetchDoctors();
   }, []);
 
+  // Check scroll capabilities
+  useEffect(() => {
+    const checkScroll = () => {
+      if (doctorsContainerRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = doctorsContainerRef.current;
+        setCanScrollLeft(scrollLeft > 0);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5); // small buffer
+      }
+    };
+
+    // Initial check
+    checkScroll();
+
+    // Set up event listener
+    const container = doctorsContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScroll);
+      // Also check when the window resizes or filtered doctors change
+      window.addEventListener('resize', checkScroll);
+      return () => {
+        container.removeEventListener('scroll', checkScroll);
+        window.removeEventListener('resize', checkScroll);
+      };
+    }
+  }, [filteredDoctors]);
+
   // Handler functions
+  const scrollDoctorsContainer = (direction: 'left' | 'right') => {
+    if (doctorsContainerRef.current) {
+      const scrollAmount = doctorsContainerRef.current.clientWidth * 0.8;
+      const newScrollLeft = doctorsContainerRef.current.scrollLeft + 
+        (direction === 'left' ? -scrollAmount : scrollAmount);
+      
+      doctorsContainerRef.current.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const handleDoctorSelect = (doctorName: string) => {
     setSelectedDoctor(doctorName);
     form.setValue("primaryPhysician", doctorName);
@@ -310,94 +352,139 @@ export const AppointmentForm = ({
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  {filteredDoctors && filteredDoctors.length > 0 ? (
-                    filteredDoctors.map((doctor) => (
-                      <div 
-                        key={doctor.$id} 
-                        className={`rounded-lg border p-4 shadow-sm transition-all hover:shadow-md cursor-pointer
-                          ${selectedDoctor === doctor.name 
-                            ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 dark:bg-blue-900/20 dark:ring-blue-900" 
-                            : "border-gray-200 bg-white hover:border-blue-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-blue-700"}
-                        `}
-                        onClick={() => handleDoctorSelect(doctor.name)}
-                      >
-                        <div className="flex items-start gap-4">
-                          {doctor.image && (
-                            <div className="relative flex-shrink-0">
-                              <div className="rounded-full border border-gray-200 overflow-hidden dark:border-gray-700" style={{width: 60, height: 60}}>
-                                <Image
-                                  src={doctor.image}
-                                  width={60}
-                                  height={60}
-                                  alt={doctor.name}
-                                  className="object-cover"
-                                />
-                              </div>
-                              {selectedDoctor === doctor.name && (
-                                <div className="absolute -right-1 -top-1 rounded-full bg-green-500 p-1 border-2 border-white dark:border-gray-800">
-                                  <svg className="h-2 w-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
+                <div className="relative">
+                  {/* Scroll buttons */}
+                  {canScrollLeft && (
+                    <button 
+                      type="button"
+                      onClick={() => scrollDoctorsContainer('left')}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:hover:bg-gray-700"
+                    >
+                      <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    </button>
+                  )}
+                  
+                  {canScrollRight && (
+                    <button 
+                      type="button"
+                      onClick={() => scrollDoctorsContainer('right')}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:hover:bg-gray-700"
+                    >
+                      <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    </button>
+                  )}
+                  
+                  {/* Scrollable container */}
+                  <div 
+                    ref={doctorsContainerRef}
+                    className="overflow-x-auto pb-4 pt-1 hide-scrollbar"
+                    style={{ 
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
+                      maxHeight: '400px'
+                    }}
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-min px-1">
+                      {filteredDoctors && filteredDoctors.length > 0 ? (
+                        filteredDoctors.map((doctor) => (
+                          <div 
+                            key={doctor.$id} 
+                            className={`rounded-lg border p-4 shadow-sm transition-all hover:shadow-md cursor-pointer
+                              ${selectedDoctor === doctor.name 
+                                ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 dark:bg-blue-900/20 dark:ring-blue-900" 
+                                : "border-gray-200 bg-white hover:border-blue-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:border-blue-700"}
+                            `}
+                            onClick={() => handleDoctorSelect(doctor.name)}
+                          >
+                            <div className="flex items-start gap-4">
+                              {doctor.image && (
+                                <div className="relative flex-shrink-0">
+                                  <div className="rounded-full border border-gray-200 overflow-hidden dark:border-gray-700" style={{width: 60, height: 60}}>
+                                    <Image
+                                      src={doctor.image}
+                                      width={60}
+                                      height={60}
+                                      alt={doctor.name}
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                  {selectedDoctor === doctor.name && (
+                                    <div className="absolute -right-1 -top-1 rounded-full bg-green-500 p-1 border-2 border-white dark:border-gray-800">
+                                      <svg className="h-2 w-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    </div>
+                                  )}
                                 </div>
                               )}
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <h3 className="font-medium text-gray-900 dark:text-white">{doctor.name}</h3>
-                              <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                                ${doctor.rate || 50}
-                              </span>
-                            </div>
-                            
-                            <div className="mt-1 flex items-center">
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {doctor.specialization || "General Practice"}
-                              </span>
-                              {doctor.experience && (
-                                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                  {doctor.experience}
-                                </span>
-                              )}
-                            </div>
-                            
-                            <div className="mt-3">
-                              <div className="flex items-center text-xs font-medium text-green-600 dark:text-green-300">
-                                <Clock className="mr-1 h-3 w-3" />
-                                Available:
-                              </div>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {formatAvailability(doctor).map((time, index) => (
-                                  <span 
-                                    key={index} 
-                                    className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
-                                  >
-                                    {time}
+                              <div className="flex-1">
+                                <div className="flex justify-between">
+                                  <h3 className="font-medium text-gray-900 dark:text-white">{doctor.name}</h3>
+                                  <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                                    ${doctor.rate || 50}
                                   </span>
-                                ))}
+                                </div>
+                                
+                                <div className="mt-1 flex items-center">
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                                    {doctor.specialization || "General Practice"}
+                                  </span>
+                                  {doctor.experience && (
+                                    <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                      {doctor.experience}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                <div className="mt-3">
+                                  <div className="flex items-center text-xs font-medium text-green-600 dark:text-green-300">
+                                    <Clock className="mr-1 h-3 w-3" />
+                                    Available:
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {formatAvailability(doctor).map((time, index) => (
+                                      <span 
+                                        key={index} 
+                                        className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                                      >
+                                        {time}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full rounded-lg border border-gray-200 bg-gray-50 p-6 text-center dark:bg-gray-800 dark:border-gray-700">
+                          <p className="text-gray-500 dark:text-gray-400">No doctors found matching "{searchQuery}"</p>
+                          {searchQuery && (
+                            <button 
+                              type="button"
+                              onClick={() => handleDoctorSelect(searchQuery)}
+                              className="mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              Add "{searchQuery}" as doctor
+                            </button>
+                          )}
                         </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-6 text-center dark:bg-gray-800 dark:border-gray-700">
-                      <p className="text-gray-500 dark:text-gray-400">No doctors found matching "{searchQuery}"</p>
-                      {searchQuery && (
-                        <button 
-                          type="button"
-                          onClick={() => handleDoctorSelect(searchQuery)}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
-                          Add "{searchQuery}" as doctor
-                        </button>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
+              
+              {/* Add custom CSS styles for hiding scrollbar */}
+              <style jsx global>{`
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .hide-scrollbar {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+              `}</style>
               
               {selectedDoctor && !doctors.some(d => d.name === selectedDoctor) && (
                 <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/30">

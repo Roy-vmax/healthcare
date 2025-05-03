@@ -14,7 +14,7 @@ export const columns: ColumnDef<Appointment>[] = [
   {
     header: "#",
     cell: ({ row }) => {
-      return <p className="text-14-medium ">{row.index + 1}</p>;
+      return <p className="text-14-medium">{row.index + 1}</p>;
     },
   },
   {
@@ -23,7 +23,7 @@ export const columns: ColumnDef<Appointment>[] = [
     cell: ({ row }) => {
       const appointment = row.original;
       // Add null check for patient object
-      return <p className="text-14-medium ">{appointment.patient?.name || "Unknown"}</p>;
+      return <p className="text-14-medium">{appointment.patient?.name || "Unknown"}</p>;
     },
   },
   {
@@ -55,21 +55,43 @@ export const columns: ColumnDef<Appointment>[] = [
     header: "Doctor",
     cell: ({ row }) => {
       const appointment = row.original;
-
-      const doctor = Doctors.find(
-        (doctor) => doctor.name === appointment.primaryPhysician
-      );
+      // More robust doctor finding - check for undefined and handle properly
+      let doctorName = appointment.primaryPhysician;
+      
+      // Default placeholder image - this path should match your project structure
+      let doctorImage = "/assets/icons/doctor-placeholder.svg";
+      
+      // Only look for the doctor in the Doctors array if primaryPhysician exists
+      if (doctorName && Doctors && Doctors.length > 0) {
+        const doctorFound = Doctors.find(
+          (doc) => doc.name === doctorName
+        );
+        
+        if (doctorFound) {
+          doctorName = doctorFound.name;
+          if (doctorFound.image) {
+            // Ensure image path starts with "/" if it's not an absolute URL
+            doctorImage = doctorFound.image.startsWith('http') 
+              ? doctorFound.image 
+              : doctorFound.image.startsWith('/') 
+                ? doctorFound.image 
+                : `/${doctorFound.image}`;
+          }
+        }
+      }
 
       return (
         <div className="flex items-center gap-3">
-          <Image
-            src={doctor?.image || "/assets/icons/doctor-placeholder.svg"}
-            alt="doctor"
-            width={100}
-            height={100}
-            className="size-8"
-          />
-          <p className="whitespace-nowrap">Dr. {doctor?.name || "Unknown"}</p>
+          {/* Replace Next.js Image with a simple div with background color */}
+          <div 
+            className="size-8 bg-blue-600 flex items-center justify-center rounded-full text-white text-xs font-medium"
+            aria-label="Doctor avatar"
+          >
+            {doctorName ? doctorName.charAt(0).toUpperCase() : "?"}
+          </div>
+          <p className="whitespace-nowrap">
+            {doctorName ? `Dr. ${doctorName}` : "Dr. Unknown"}
+          </p>
         </div>
       );
     },
