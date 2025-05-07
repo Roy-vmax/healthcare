@@ -1,28 +1,21 @@
 "use server";
 
 import { ID, Query, Models } from "node-appwrite";
-import twilio from "twilio";
 
 import {
   DATABASE_ID,
   databases,
 } from "../appwrite.config";
-import { parseStringify } from "../utils";
 
-// Define collection ID (was missing from the config)
+// Define collection ID
 const VERIFICATION_COLLECTION_ID = process.env.VERIFICATION_COLLECTION_ID || "verification";
-
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
 
 // Generate a random 6-digit code
 const generateVerificationCode = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Send verification SMS
+// Send verification SMS (now just console logs the code)
 export const sendVerificationSMS = async (phone: string) => {
   try {
     // Check if a verification already exists and isn't expired
@@ -65,14 +58,10 @@ export const sendVerificationSMS = async (phone: string) => {
       }
     );
 
-    // Send SMS via Twilio
-    await twilioClient.messages.create({
-      body: `Your MedConnect verification code is: ${code}. It expires in 10 minutes.`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
-    });
+    // Instead of sending via Twilio, just log to console
+    console.log(`🔑 VERIFICATION CODE for ${phone}: ${code}`);
 
-    return { success: true, message: "Verification code sent" };
+    return { success: true, message: "Verification code sent (check console logs)" };
   } catch (error) {
     console.error("Error sending verification SMS:", error);
     return { 

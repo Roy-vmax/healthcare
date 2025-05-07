@@ -12,11 +12,11 @@ import CustomFormField, { FormFieldType } from "@/components/CustomFormField";
 
 // Define the validation schema
 export const VerificationSchema = z.object({
-  phone: z.string().min(10, "Please enter a valid phone number"),
+  phone: z.string().min(3, "Please enter a phone number (can be fake)"),
 });
 
 export const VerificationCodeSchema = z.object({
-  phone: z.string().min(10, "Please enter a valid phone number"),
+  phone: z.string().min(3, "Please enter a phone number"),
   code: z.string().length(6, "Verification code must be 6 digits"),
 });
 
@@ -29,6 +29,8 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
   const [step, setStep] = useState<"send" | "verify">("send");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [verificationComplete, setVerificationComplete] = useState(false);
   
   // Form for sending code
   const sendForm = useForm<z.infer<typeof VerificationSchema>>({
@@ -51,12 +53,14 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
   const handleSendCode = async (values: z.infer<typeof VerificationSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const result = await sendVerificationSMS(values.phone);
 
       if (result.success) {
         setStep("verify");
+        setSuccessMessage("Verification code sent! Check the console output.");
       } else {
         setErrorMessage(result.message);
       }
@@ -72,12 +76,18 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
   const handleVerifyCode = async (values: z.infer<typeof VerificationCodeSchema>) => {
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const result = await verifyCode(values.phone, values.code);
 
       if (result.success) {
-        onVerified();
+        setSuccessMessage("Phone verified successfully!");
+        setVerificationComplete(true);
+        // Wait a moment before calling onVerified to show the success message
+        setTimeout(() => {
+          onVerified();
+        }, 1500);
       } else {
         setErrorMessage(result.message);
       }
@@ -94,6 +104,7 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
     const values = verifyForm.getValues();
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       const result = await sendVerificationSMS(values.phone);
@@ -101,7 +112,7 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
       if (!result.success) {
         setErrorMessage(result.message);
       } else {
-        setErrorMessage("New verification code sent!");
+        setSuccessMessage("New verification code sent! Check the console output.");
       }
     } catch (error) {
       console.error("Error resending verification code:", error);
@@ -115,6 +126,7 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
   const handleBackToSend = () => {
     setStep("send");
     setErrorMessage(null);
+    setSuccessMessage(null);
   };
 
   return (
@@ -123,12 +135,20 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
         <h2 className="text-xl font-semibold">Phone Verification</h2>
         <p className="text-dark-700">
           We need to verify your phone number for security purposes.
+          <br />
+          <span className="text-sm italic">(Using fake numbers for development - verification codes will appear in console)</span>
         </p>
       </div>
 
       {errorMessage && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           {errorMessage}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+          {successMessage}
         </div>
       )}
 
@@ -139,12 +159,12 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
               fieldType={FormFieldType.PHONE_INPUT}
               control={sendForm.control}
               name="phone"
-              label="Phone Number"
+              label="Phone Number (can be fake)"
               placeholder="(555) 123-4567"
-              disabled
+              disabled={false} // Allow editing the phone number
             />
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || verificationComplete}>
               {isLoading ? "Sending..." : "Send Verification Code"}
             </Button>
           </form>
@@ -167,7 +187,7 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
               control={verifyForm.control}
               name="code"
               label="Verification Code"
-              placeholder="Enter 6-digit code"
+              placeholder="Enter 6-digit code from console"
             />
 
             <div className="text-sm text-dark-700">
@@ -176,7 +196,7 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
                 type="button"
                 className="text-primary-600 hover:underline"
                 onClick={handleResendCode}
-                disabled={isLoading}
+                disabled={isLoading || verificationComplete}
               >
                 Resend
               </button>
@@ -188,14 +208,14 @@ const PhoneVerification = ({ phone, onVerified }: PhoneVerificationProps) => {
                 className="w-full sm:w-1/3" 
                 variant="outline" 
                 onClick={handleBackToSend}
-                disabled={isLoading}
+                disabled={isLoading || verificationComplete}
               >
                 Back
               </Button>
               <Button 
                 type="submit" 
                 className="w-full sm:w-2/3" 
-                disabled={isLoading}
+                disabled={isLoading || verificationComplete}
               >
                 {isLoading ? "Verifying..." : "Verify Code"}
               </Button>
