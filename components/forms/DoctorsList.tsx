@@ -79,18 +79,6 @@ export const DoctorsList = () => {
     setDeleteConfirm(null);
   };
 
-  const handleBookAppointment = (doctor: Doctor) => {
-    const doctorRate = typeof doctor.rate === 'string' 
-      ? parseFloat(doctor.rate) 
-      : doctor.rate;
-    
-    setSelectedDoctor({
-      ...doctor,
-      rate: doctorRate
-    });
-    setShowPaymentForm(true);
-  };
-
   const handlePaymentComplete = () => {
     setShowPaymentForm(false);
     setSelectedDoctor(null);
@@ -370,16 +358,6 @@ export const DoctorsList = () => {
                         ))}
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-750 border-t border-gray-100 dark:border-gray-700">
-                    <button
-                      onClick={() => handleBookAppointment(doctor)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm font-medium"
-                    >
-                      <Calendar size={18} />
-                      Book Appointment
-                    </button>
                   </div>
                 </div>
               ))

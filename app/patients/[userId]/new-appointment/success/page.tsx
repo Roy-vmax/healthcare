@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Toast } from "@/components/ui/toast";
+import { User } from "lucide-react";
 
 interface SearchParamProps {
   searchParams: {
@@ -40,6 +41,7 @@ export default function RequestSuccess({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
   const [isCancelled, setIsCancelled] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const appointmentId = (searchParams?.appointmentId as string) || "";
 
@@ -189,6 +191,10 @@ Status: ${isCancelled ? "Refunded" : paymentDetails.status}
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
@@ -239,14 +245,19 @@ Status: ${isCancelled ? "Refunded" : paymentDetails.status}
               Appointment Details {isCancelled && <span className="text-red-400 text-sm ml-2">Cancelled</span>}
             </h3>
             <div className="flex items-center gap-3 mb-4">
-              <div className="bg-blue-500 rounded-full p-2">
-                <Image
-                  src={doctor?.image || "/assets/icons/doctor-placeholder.svg"}
-                  alt="doctor"
-                  width={24}
-                  height={24}
-                  className="size-5"
-                />
+              <div className="bg-blue-500 rounded-full p-2 w-10 h-10 flex items-center justify-center overflow-hidden">
+                {doctor?.image && !imageError ? (
+                  <Image
+                    src={doctor.image}
+                    alt={doctor.name || "Doctor"}
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-cover rounded-full"
+                    onError={handleImageError}
+                  />
+                ) : (
+                  <User className="text-white size-6" />
+                )}
               </div>
               <p className="text-lg">{appointmentData?.primaryPhysician || "Unknown"}</p>
             </div>
